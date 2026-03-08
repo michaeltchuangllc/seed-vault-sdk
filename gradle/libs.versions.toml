@@ -25,6 +25,7 @@ junit = "4.13.2"
 kotlin = "2.3.10"
 kotlinx-coroutines-android = "1.10.2"
 logback-android = "3.0.0"
+mavenPublish = "0.34.0"
 protobuf-gradle-plugin = "0.9.6"
 protobuf-java = "4.34.0"
 sl4j = "2.0.17"
@@ -83,4 +84,5 @@ google-kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "google-kotl
 gradle-nexus-publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "gradle-nexus-publish" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 jetbrains-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 protobuf = { id = "com.google.protobuf", version.ref = "protobuf-gradle-plugin" }
