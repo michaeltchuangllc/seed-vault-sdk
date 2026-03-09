@@ -13,11 +13,17 @@ data class Authorization(
     val purpose: Purpose
 ) {
     enum class Purpose {
-        SIGN_SOLANA_TRANSACTIONS;
+        SIGN_SOLANA_TRANSACTIONS,
+        SIGN_ALGORAND_TRANSACTIONS,
+        SIGN_BITCOIN_TRANSACTIONS,
+        SIGN_ETHEREUM_TRANSACTIONS;
 
         fun toWalletContractConstant(): Int {
             return when (this) {
                 SIGN_SOLANA_TRANSACTIONS -> WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+                SIGN_ALGORAND_TRANSACTIONS -> WalletContractV1.PURPOSE_SIGN_ALGORAND_TRANSACTION
+                SIGN_BITCOIN_TRANSACTIONS -> WalletContractV1.PURPOSE_SIGN_BITCOIN_TRANSACTION
+                SIGN_ETHEREUM_TRANSACTIONS -> WalletContractV1.PURPOSE_SIGN_ETHEREUM_TRANSACTION
             }
         }
 
@@ -25,6 +31,9 @@ data class Authorization(
             fun fromWalletContractConstant(@WalletContractV1.Purpose c: Int): Purpose {
                 return when (c) {
                     WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION -> SIGN_SOLANA_TRANSACTIONS
+                    WalletContractV1.PURPOSE_SIGN_ALGORAND_TRANSACTION -> SIGN_ALGORAND_TRANSACTIONS
+                    WalletContractV1.PURPOSE_SIGN_BITCOIN_TRANSACTION -> SIGN_BITCOIN_TRANSACTIONS
+                    WalletContractV1.PURPOSE_SIGN_ETHEREUM_TRANSACTION -> SIGN_ETHEREUM_TRANSACTIONS
                     else -> throw IllegalArgumentException("Unknown purpose $c")
                 }
             }

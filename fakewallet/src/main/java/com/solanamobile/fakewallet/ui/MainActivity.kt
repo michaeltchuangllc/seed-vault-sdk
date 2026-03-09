@@ -39,7 +39,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.solanamobile.fakewallet.R
 import com.solanamobile.seedvault.SeedVault
 import com.solanamobile.seedvault.Wallet
-import com.solanamobile.seedvault.WalletContractV1
 import com.solanamobile.ui.apptheme.Sizes
 import com.solanamobile.ui.apptheme.SolanaTheme
 import kotlinx.coroutines.launch
@@ -106,6 +105,16 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(contentPadding)
                         ) {
+                            // Chain selector at the top
+                            item {
+                                ChainSelector(
+                                    selectedPurpose = uiState.selectedPurpose,
+                                    onPurposeSelected = { viewModel.selectPurpose(it) }
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = Sizes.dp16)
+                                )
+                            }
                             uiState.seeds.forEach {
                                 item {
                                     SeedDetails(
@@ -186,10 +195,10 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.padding(horizontal = Sizes.dp16)
                                 )
                             }
-                            uiState.implementationLimits.map {
+                            uiState.implementationLimits.map { limitEntry ->
                                 item {
-                                    ImplementationLimits(implementationLimit = it.key to it.value) {
-                                        viewModel.exceedImplementationLimit(it)
+                                    ImplementationLimits(implementationLimit = limitEntry.key to limitEntry.value) {
+                                        viewModel.exceedImplementationLimit(limitEntry.key)
                                     }
                                     HorizontalDivider(
                                         modifier = Modifier.padding(horizontal = Sizes.dp16)
@@ -209,7 +218,7 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ViewModelEvent.AuthorizeNewSeed -> {
                             val i = Wallet.authorizeSeed(
-                                this@MainActivity, WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+                                this@MainActivity, event.purpose
                             )
                             requestCode = REQUEST_AUTHORIZE_SEED_ACCESS
                             seedVaultActivityResultLauncher.launch(i)
@@ -218,7 +227,7 @@ class MainActivity : ComponentActivity() {
 
                         is ViewModelEvent.CreateNewSeed -> {
                             val i = Wallet.createSeed(
-                                this@MainActivity, WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+                                this@MainActivity, event.purpose
                             )
                             requestCode = REQUEST_CREATE_NEW_SEED
                             seedVaultActivityResultLauncher.launch(i)
@@ -227,7 +236,7 @@ class MainActivity : ComponentActivity() {
 
                         is ViewModelEvent.ImportExistingSeed -> {
                             val i = Wallet.importSeed(
-                                this@MainActivity, WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+                                this@MainActivity, event.purpose
                             )
                             requestCode = REQUEST_IMPORT_EXISTING_SEED
                             seedVaultActivityResultLauncher.launch(i)

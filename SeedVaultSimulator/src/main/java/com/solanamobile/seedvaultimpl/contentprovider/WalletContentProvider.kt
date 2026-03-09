@@ -302,12 +302,21 @@ class WalletContentProvider : ContentProvider() {
         val authKey = SeedRepository.AuthorizationKey(uid, authToken)
         seedRepository.authorizations.value[authKey]?.let { seed ->
             seed.accounts.forEach { account ->
+                // Encode public key based on the chain purpose
+                val encodedPublicKey = when (account.purpose) {
+                    Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS -> Base58EncodeUseCase(account.publicKey)
+                    Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> Base58EncodeUseCase(account.publicKey)
+                    Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+                    Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> throw UnsupportedOperationException(
+                        "Public key encoding for ${account.purpose} not yet implemented")
+                }
+
                 // NOTE: must be in the same order as defaultProjection
                 val values = arrayOf(
                     account.id,                                             // WalletContractV1.ACCOUNTS_ACCOUNT_ID
                     account.bip32DerivationPathUri.toString(),              // WalletContractV1.ACCOUNTS_BIP32_DERIVATION_PATH
                     account.publicKey,                                      // WalletContractV1.ACCOUNTS_PUBLIC_KEY_RAW
-                    Base58EncodeUseCase(account.publicKey),                 // WalletContractV1.ACCOUNTS_PUBLIC_KEY_ENCODED
+                    encodedPublicKey,                                       // WalletContractV1.ACCOUNTS_PUBLIC_KEY_ENCODED
                     account.name ?: "",                                     // WalletContractV1.ACCOUNTS_ACCOUNT_NAME
                     if (account.isUserWallet) 1.toShort() else 0.toShort(), // WalletContractV1.ACCOUNTS_ACCOUNT_IS_USER_WALLET
                     if (account.isValid) 1.toShort() else 0.toShort()       // WalletContractV1.ACCOUNTS_ACCOUNT_IS_VALID

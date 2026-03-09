@@ -353,7 +353,16 @@ class AuthorizeViewModel @AssistedInject constructor(
                                 null
                             }
                         }
-                        PublicKeyResponse(publicKey, publicKey?.let { Base58EncodeUseCase(it) }, pathUri)
+                        val encodedPublicKey = publicKey?.let { pk ->
+                            when (purpose) {
+                                Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+                                Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> Base58EncodeUseCase(pk)
+                                Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+                                Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> throw UnsupportedOperationException(
+                                    "Public key encoding for $purpose not yet implemented")
+                            }
+                        }
+                        PublicKeyResponse(publicKey, encodedPublicKey, pathUri)
                     }
                     authorizeCommonViewModel.completeAuthorizationWithPublicKeys(publicKeys)
                 }
