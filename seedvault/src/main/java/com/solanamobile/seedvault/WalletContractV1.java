@@ -345,6 +345,24 @@ public final class WalletContractV1 {
     public static final int PURPOSE_SIGN_SOLANA_TRANSACTION = 0;
 
     /**
+     * The purpose of this authorization is for signing transactions to be submitted to the Algorand
+     * blockchain
+     */
+    public static final int PURPOSE_SIGN_ALGORAND_TRANSACTION = 1;
+
+    /**
+     * The purpose of this authorization is for signing transactions to be submitted to the Bitcoin
+     * blockchain
+     */
+    public static final int PURPOSE_SIGN_BITCOIN_TRANSACTION = 2;
+
+    /**
+     * The purpose of this authorization is for signing transactions to be submitted to the Ethereum
+     * blockchain
+     */
+    public static final int PURPOSE_SIGN_ETHEREUM_TRANSACTION = 3;
+
+    /**
      * Uri scheme for BIP32 Uris. The BIP32 Uri format is {@code bip32:/<BIP32 derivation path>},
      * e.g. {@code bip32:/m/44'/501'/0'}.
      */
@@ -484,7 +502,8 @@ public final class WalletContractV1 {
 
     /**
      * Type: {@code String} (Purpose-specific encoding of {@link #ACCOUNTS_PUBLIC_KEY_RAW};
-     * for e.g., Base58-encoding for {@link #PURPOSE_SIGN_SOLANA_TRANSACTION})
+     * for e.g., Base58-encoding for {@link #PURPOSE_SIGN_SOLANA_TRANSACTION} and
+     * {@link #PURPOSE_SIGN_ALGORAND_TRANSACTION})
      */
     public static final String ACCOUNTS_PUBLIC_KEY_ENCODED = "Accounts_PublicKeyEncoded";
 
@@ -562,7 +581,8 @@ public final class WalletContractV1 {
 
     /** Annotation for the valid Purpose values */
     @Retention(RetentionPolicy.SOURCE)
-    @IntDef({PURPOSE_SIGN_SOLANA_TRANSACTION})
+    @IntDef({PURPOSE_SIGN_SOLANA_TRANSACTION, PURPOSE_SIGN_ALGORAND_TRANSACTION,
+            PURPOSE_SIGN_BITCOIN_TRANSACTION, PURPOSE_SIGN_ETHEREUM_TRANSACTION})
     public @interface Purpose {}
 
     private WalletContractV1() {}

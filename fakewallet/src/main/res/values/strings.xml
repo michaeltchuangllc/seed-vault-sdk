@@ -19,8 +19,8 @@
     <string name="action_sign_max_messages_with_max_signatures">Sign %1$d messages x %2$d keys</string>
     <string name="action_sign_no_auth_messages">Sign permissioned account %1$d messages x %2$d keys</string>
     <plurals name="label_has_unauthorized_seeds">
-        <item quantity="other">No seeds remaining to be authorized for PURPOSE_SIGN_SOLANA_TRANSACTION</item>
-        <item quantity="one">Authorize another seed for PURPOSE_SIGN_SOLANA_TRANSACTION</item>
+        <item quantity="other">No seeds remaining to be authorized for selected chain</item>
+        <item quantity="one">Authorize another seed for selected chain</item>
     </plurals>
     <string name="label_create_new_seed">Create a new seed</string>
     <string name="label_import_existing_seed">Import an existing seed</string>

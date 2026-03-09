@@ -33,8 +33,12 @@ class BipDerivationUseCase @Inject constructor(
         derivationPath: Bip32DerivationPath
     ): ByteArray {
         return when (purpose) {
-            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS -> ed25519Slip10UseCase.derivePrivateKey(
+            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> ed25519Slip10UseCase.derivePrivateKey(
                 seed.details, derivationPath)
+            Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> throw UnsupportedOperationException(
+                "Key derivation for $purpose not yet implemented")
         }
     }
 
@@ -45,8 +49,12 @@ class BipDerivationUseCase @Inject constructor(
         partialPublicDerivation: PartialPublicDerivation? = null
     ): ByteArray {
         return when (purpose) {
-            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS ->
+            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS ->
                 ed25519Slip10UseCase.derivePublicKey(seed.details, derivationPath, partialPublicDerivation)
+            Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> throw UnsupportedOperationException(
+                "Key derivation for $purpose not yet implemented")
         }
     }
 
@@ -56,8 +64,12 @@ class BipDerivationUseCase @Inject constructor(
         derivationPath: Bip32DerivationPath
     ): PartialPublicDerivation {
         return when (purpose) {
-            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS ->
+            Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS ->
                 ed25519Slip10UseCase.derivePublicKeyPartialDerivation(seed.details, derivationPath)
+            Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> throw UnsupportedOperationException(
+                "Key derivation for $purpose not yet implemented")
         }
     }
 }
@@ -76,8 +88,13 @@ fun Bip32DerivationPath.normalize(
     purpose: Authorization.Purpose
 ): Bip32DerivationPath {
     return when (purpose) {
-        Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS -> {
+        Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+        Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> {
             hardenAllLevels()
+        }
+        Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+        Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> {
+            throw UnsupportedOperationException("Normalization for $purpose not yet implemented")
         }
     }
 }
@@ -86,8 +103,13 @@ fun Bip44DerivationPath.normalize(
     purpose: Authorization.Purpose
 ): Bip44DerivationPath {
     return when (purpose) {
-        Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS -> {
+        Authorization.Purpose.SIGN_SOLANA_TRANSACTIONS,
+        Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> {
             hardenAllLevels()
+        }
+        Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+        Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> {
+            throw UnsupportedOperationException("Normalization for $purpose not yet implemented")
         }
     }
 }
@@ -104,6 +126,9 @@ fun BipDerivationPath.toBip32DerivationPath(
 
 private const val BIP44_PURPOSE: Int = 44
 private const val BIP44_COIN_TYPE_SOLANA: Int = 501
+private const val BIP44_COIN_TYPE_ALGORAND: Int = 283
+private const val BIP44_COIN_TYPE_BITCOIN: Int = 0
+private const val BIP44_COIN_TYPE_ETHEREUM: Int = 60
 
 fun Bip44DerivationPath.toBip32DerivationPath(
     purpose: Authorization.Purpose
@@ -115,6 +140,19 @@ fun Bip44DerivationPath.toBip32DerivationPath(
                 .appendLevel(BipLevel(BIP44_COIN_TYPE_SOLANA, true))
                 .appendLevels(hardenAllLevels().levels)
                 .build()
+        }
+        Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> {
+            Bip32DerivationPath.newBuilder()
+                .appendLevel(BipLevel(BIP44_PURPOSE, true))
+                .appendLevel(BipLevel(BIP44_COIN_TYPE_ALGORAND, true))
+                .appendLevels(hardenAllLevels().levels)
+                .build()
+        }
+        Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS -> {
+            throw UnsupportedOperationException("BIP44 to BIP32 conversion for $purpose not yet implemented")
+        }
+        Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> {
+            throw UnsupportedOperationException("BIP44 to BIP32 conversion for $purpose not yet implemented")
         }
     }
 }

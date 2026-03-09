@@ -32,6 +32,15 @@ class SignPayloadUseCase @Inject constructor(private val sodium: LazySodiumAndro
                 require(key.size == ED25519_SECRET_KEY_SIZE.toInt()) { "Invalid private key for signing Solana transactions" }
                 signEd25519(key, transaction)
             }
+            Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> {
+                // TODO: validate transaction is an Algorand transaction before signing
+                require(key.size == ED25519_SECRET_KEY_SIZE.toInt()) { "Invalid private key for signing Algorand transactions" }
+                signEd25519(key, transaction)
+            }
+            Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> {
+                throw UnsupportedOperationException("Signing for $purpose not yet implemented")
+            }
         }
     }
 
@@ -47,6 +56,15 @@ class SignPayloadUseCase @Inject constructor(private val sodium: LazySodiumAndro
                 // TODO: validate message is a Solana-compatible message before signing
                 require(key.size == ED25519_SECRET_KEY_SIZE.toInt()) { "Invalid private key for signing Solana messages" }
                 signEd25519(key, message)
+            }
+            Authorization.Purpose.SIGN_ALGORAND_TRANSACTIONS -> {
+                // TODO: validate message is an Algorand-compatible message before signing
+                require(key.size == ED25519_SECRET_KEY_SIZE.toInt()) { "Invalid private key for signing Algorand messages" }
+                signEd25519(key, message)
+            }
+            Authorization.Purpose.SIGN_BITCOIN_TRANSACTIONS,
+            Authorization.Purpose.SIGN_ETHEREUM_TRANSACTIONS -> {
+                throw UnsupportedOperationException("Signing for $purpose not yet implemented")
             }
         }
     }

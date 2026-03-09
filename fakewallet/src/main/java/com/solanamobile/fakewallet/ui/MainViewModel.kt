@@ -37,6 +37,12 @@ class MainViewModel(
     private var maxRequestedSignatures: Int = 0
     private var maxRequestedPublicKeys: Int = 0
 
+    // Supported purposes for dual-chain support
+    private val supportedPurposes = listOf(
+        WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION,
+        WalletContractV1.PURPOSE_SIGN_ALGORAND_TRANSACTION
+    )
+
     init {
         if (!SeedVault.isAvailable(application, true)) {
             throw UnsupportedOperationException("Seed Vault is not available; please install the Seed Vault simulator")
@@ -50,7 +56,7 @@ class MainViewModel(
             // that accounts have been marked as user wallets.
             if (BuildConfig.FLAVOR == "Privileged") {
                 _uiState.value.seeds.forEach { seed ->
-                    markAccountsAsUserWallets(seed.authToken)
+                    markAccountsAsUserWallets(seed.authToken, seed.purpose)
                 }
             }
         }
@@ -80,9 +86,11 @@ class MainViewModel(
     }
 
     private suspend fun refreshUiState() {
-        val hasUnauthorizedSeeds = withContext(Dispatchers.Default) {
-            Wallet.hasUnauthorizedSeedsForPurpose(getApplication(),
-                WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION)
+        // Check unauthorized seeds for all supported purposes
+        val hasUnauthorizedSeeds = supportedPurposes.any { purpose ->
+            withContext(Dispatchers.Default) {
+                Wallet.hasUnauthorizedSeedsForPurpose(getApplication(), purpose)
+            }
         }
 
         val seeds = mutableListOf<Seed>()
@@ -127,11 +135,13 @@ class MainViewModel(
         }
         authorizedSeedsCursor.close()
 
+        // Get implementation limits for the selected purpose, or default to Solana
+        val selectedPurpose = _uiState.value.selectedPurpose
         // Note: Add a synthetic entry to the implementation limits, to display and test the BIP32
         // path length limits (which are not a normal implementation limit)
         val implementationLimits = Wallet.getImplementationLimitsForPurpose(
             getApplication(),
-            WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+            selectedPurpose
         ).plus(IMPLEMENTATION_LIMITS_MAX_BIP32_PATH_DEPTH to WalletContractV1.BIP32_URI_MAX_DEPTH.toLong())
         maxSigningRequests =
             implementationLimits[WalletContractV1.IMPLEMENTATION_LIMITS_MAX_SIGNING_REQUESTS]!!.toInt()
@@ -160,36 +170,58 @@ class MainViewModel(
         }
     }
 
+    fun selectPurpose(@WalletContractV1.Purpose purpose: Int) {
+        _uiState.update { it.copy(selectedPurpose = purpose) }
+        viewModelScope.launch {
+            refreshUiState()
+        }
+    }
+
     fun authorizeNewSeed() {
+        val purpose = _uiState.value.selectedPurpose
         viewModelScope.launch {
             _viewModelEvents.emit(
-                ViewModelEvent.AuthorizeNewSeed
+                ViewModelEvent.AuthorizeNewSeed(purpose)
             )
         }
     }
 
     fun createNewSeed() {
+        val purpose = _uiState.value.selectedPurpose
         viewModelScope.launch {
             _viewModelEvents.emit(
-                ViewModelEvent.CreateNewSeed
+                ViewModelEvent.CreateNewSeed(purpose)
             )
         }
     }
 
     fun importExistingSeed() {
+        val purpose = _uiState.value.selectedPurpose
         viewModelScope.launch {
             _viewModelEvents.emit(
-                ViewModelEvent.ImportExistingSeed
+                ViewModelEvent.ImportExistingSeed(purpose)
             )
         }
     }
 
     @Suppress("UNUSED_PARAMETER")
     fun onAddSeedSuccess(event: ViewModelEvent.AddSeedViewModelEvent, authToken: Long) {
-        markAccountsAsUserWallets(authToken)
+        // Get the purpose from the event
+        val purpose = when (event) {
+            is ViewModelEvent.AuthorizeNewSeed -> event.purpose
+            is ViewModelEvent.CreateNewSeed -> event.purpose
+            is ViewModelEvent.ImportExistingSeed -> event.purpose
+        }
+        // Add a small delay to allow Seed Vault to generate accounts
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(500)
+            markAccountsAsUserWallets(authToken, purpose)
+            // Refresh UI after marking accounts
+            refreshUiState()
+        }
     }
 
-    private fun markAccountsAsUserWallets(authToken: Long) {
+    private fun markAccountsAsUserWallets(authToken: Long, @WalletContractV1.Purpose purpose: Int) {
         // Mark two accounts as user wallets. This simulates a real wallet app exploring each
         // account and marking them as containing user funds.
         viewModelScope.launch {
@@ -200,9 +232,9 @@ class MainViewModel(
                 val resolvedDerivationPath = Wallet.resolveDerivationPath(
                     getApplication(),
                     derivationPath.toUri(),
-                    WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
+                    purpose
                 )
-                Log.d(TAG, "Resolved BIP derivation path '$derivationPath' to BIP32 derivation path '$resolvedDerivationPath' for purpose ${WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION}")
+                Log.d(TAG, "Resolved BIP derivation path '$derivationPath' to BIP32 derivation path '$resolvedDerivationPath' for purpose $purpose")
                 val cursor = Wallet.getAccounts(
                     getApplication(),
                     authToken,
@@ -213,7 +245,11 @@ class MainViewModel(
                     WalletContractV1.ACCOUNTS_BIP32_DERIVATION_PATH,
                     resolvedDerivationPath.toString()
                 )!!
-                check(cursor.moveToNext()) { "Failed to find expected account '$resolvedDerivationPath'" }
+                if (!cursor.moveToNext()) {
+                    Log.w(TAG, "Account not found for path '$resolvedDerivationPath' - it may not have been generated yet")
+                    cursor.close()
+                    continue
+                }
                 val accountId = cursor.getLong(0)
                 val isUserWallet = (cursor.getShort(1) == 1.toShort())
                 cursor.close()
@@ -636,41 +672,60 @@ data class UiState(
     val maxRequestedSignatures: Int = -1,
     val firstRequestedPublicKey: String = "",
     val lastRequestedPublicKey: String = "",
-    val messages: List<Message> = listOf()
+    val messages: List<Message> = listOf(),
+    val selectedPurpose: Int = WalletContractV1.PURPOSE_SIGN_SOLANA_TRANSACTION
 )
 
 sealed interface ViewModelEvent : Parcelable {
     sealed interface AddSeedViewModelEvent : ViewModelEvent
 
-    data object AuthorizeNewSeed : AddSeedViewModelEvent {
-        override fun writeToParcel(parcel: Parcel, flags: Int) = Unit
+    data class AuthorizeNewSeed(
+        @WalletContractV1.Purpose val purpose: Int
+    ) : AddSeedViewModelEvent {
+        constructor(p: Parcel) : this(p.readInt())
+
+        override fun writeToParcel(parcel: Parcel, flags: Int) {
+            parcel.writeInt(purpose)
+        }
+
         override fun describeContents(): Int = 0
 
-        @JvmField
-        val CREATOR = object : Parcelable.Creator<AuthorizeNewSeed> {
-            override fun createFromParcel(parcel: Parcel) = AuthorizeNewSeed
+        companion object CREATOR : Parcelable.Creator<AuthorizeNewSeed> {
+            override fun createFromParcel(parcel: Parcel) = AuthorizeNewSeed(parcel)
             override fun newArray(size: Int): Array<AuthorizeNewSeed?> = arrayOfNulls(size)
         }
     }
 
-    data object CreateNewSeed : AddSeedViewModelEvent {
-        override fun writeToParcel(parcel: Parcel, flags: Int) = Unit
+    data class CreateNewSeed(
+        @WalletContractV1.Purpose val purpose: Int
+    ) : AddSeedViewModelEvent {
+        constructor(p: Parcel) : this(p.readInt())
+
+        override fun writeToParcel(parcel: Parcel, flags: Int) {
+            parcel.writeInt(purpose)
+        }
+
         override fun describeContents(): Int = 0
 
-        @JvmField
-        val CREATOR = object : Parcelable.Creator<CreateNewSeed> {
-            override fun createFromParcel(parcel: Parcel) = CreateNewSeed
+        companion object CREATOR : Parcelable.Creator<CreateNewSeed> {
+            override fun createFromParcel(parcel: Parcel) = CreateNewSeed(parcel)
             override fun newArray(size: Int): Array<CreateNewSeed?> = arrayOfNulls(size)
         }
     }
 
-    data object ImportExistingSeed : AddSeedViewModelEvent {
-        override fun writeToParcel(parcel: Parcel, flags: Int) = Unit
+    data class ImportExistingSeed(
+        @WalletContractV1.Purpose val purpose: Int
+    ) : AddSeedViewModelEvent {
+        constructor(p: Parcel) : this(p.readInt())
+
+        override fun writeToParcel(parcel: Parcel, flags: Int) {
+            parcel.writeInt(purpose)
+        }
+
         override fun describeContents(): Int = 0
 
-        @JvmField
-        val CREATOR = object : Parcelable.Creator<ImportExistingSeed> {
-            override fun createFromParcel(parcel: Parcel) = ImportExistingSeed
+        companion object CREATOR : Parcelable.Creator<ImportExistingSeed> {
+            override fun createFromParcel(parcel: Parcel) = ImportExistingSeed(parcel)
             override fun newArray(size: Int): Array<ImportExistingSeed?> = arrayOfNulls(size)
         }
     }
