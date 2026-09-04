@@ -1,0 +1,56 @@
+# This workflow builds the Seed Vault SDK and optionally publishes to Maven Central
+#
+# To trigger with a tag:
+#   git tag v8.8.8
+#   git push origin v8.8.8
+#
+
+name: Publish Forked Seed Vault SDK
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'zulu'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build Library
+        env:
+          GITHUB_TAG: ${{ github.ref_name }}
+        run: |
+          export VERSION_TAG=${GITHUB_TAG#v}  
+          ./gradlew :seedvault:assembleRelease :seedvault:generateReleaseJavadoc -P version=$VERSION_TAG -P group=com.michaeltchuang.solanamobile
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: seedvault-wallet-sdk
+          path: |
+            seedvault/build/outputs/aar/*.aar
+            seedvault/build/docs/javadoc/
+          retention-days: 30
+
+      - name: Publish to Maven Central
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.RSA_GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.RSA_GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PASSWORD }}
+          GITHUB_TAG: ${{ github.ref_name }}
+        run: |
+          export VERSION_TAG=${GITHUB_TAG#v}
+          echo "Publishing version $VERSION_TAG to Maven Central..."
+          ./gradlew :seedvault:publishToMavenCentral -P version=$VERSION_TAG -P group=com.michaeltchuang.solanamobile --no-configuration-cache
